@@ -19,7 +19,7 @@ const Home = () => {
       icon: MapPin,
       title: "Track Live",
       description: "See buses in real-time",
-      action: () => navigate("/track"),
+      action: () => navigate("/map"),
       variant: "track" as const,
     },
     {

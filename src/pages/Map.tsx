@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { ArrowLeft, MapPin, Users, Shield, AlertCircle, CheckCircle, Navigation } from "lucide-react";
+import { ArrowLeft, MapPin, Users, Shield, AlertCircle, CheckCircle, Navigation, Bus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -16,40 +16,87 @@ const mockTickets = [
   { id: "TCK003", busId: "BUS003", userId: "user789", route: "Hospital → Business Park" },
 ];
 
-// Mock bus data with real-time positions
+// Mock route data for Kano city
+const mockRoutes = [
+  {
+    id: "ROUTE001",
+    name: "City Center → Airport Terminal",
+    color: "#3B82F6",
+    waypoints: [
+      { name: "Central Market", coordinates: [12.0022, 8.5920] },
+      { name: "Kano State University", coordinates: [12.0122, 8.6020] },
+      { name: "Murtala Mohammed Way", coordinates: [12.0322, 8.6120] },
+      { name: "Airport Junction", coordinates: [12.0522, 8.6220] },
+      { name: "Airport Terminal", coordinates: [12.0622, 8.6320] },
+    ]
+  },
+  {
+    id: "ROUTE002",
+    name: "University → Shopping District",
+    color: "#10B981",
+    waypoints: [
+      { name: "Bayero University", coordinates: [12.0122, 8.6020] },
+      { name: "Zoo Road", coordinates: [11.9922, 8.5820] },
+      { name: "Ibrahim Taiwo Road", coordinates: [11.9822, 8.5720] },
+      { name: "City Mall", coordinates: [11.9722, 8.5620] },
+    ]
+  },
+  {
+    id: "ROUTE003",
+    name: "Hospital → Business Park",
+    color: "#F59E0B",
+    waypoints: [
+      { name: "Murtala Hospital", coordinates: [11.9922, 8.5820] },
+      { name: "Government House", coordinates: [12.0022, 8.5920] },
+      { name: "Business District", coordinates: [12.0222, 8.6020] },
+      { name: "Industrial Area", coordinates: [12.0422, 8.6120] },
+    ]
+  }
+];
+
+// Mock bus data with real-time positions and route assignments
 const mockBuses = [
   {
     id: "BUS001",
     route: "City Center → Airport Terminal",
-    currentLocation: "Downtown Station",
+    routeId: "ROUTE001",
+    currentLocation: "Central Market",
     coordinates: [12.0022, 8.5920],
     status: "On Time",
     capacity: 40,
     occupied: 28,
     driver: "Ahmed Kano",
-    lastUpdate: new Date()
+    lastUpdate: new Date(),
+    waypointIndex: 0,
+    direction: 1 // 1 for forward, -1 for backward
   },
   {
     id: "BUS002", 
     route: "University → Shopping District",
-    currentLocation: "University Campus",
+    routeId: "ROUTE002",
+    currentLocation: "Bayero University",
     coordinates: [12.0122, 8.6020],
     status: "On Time",
     capacity: 35,
     occupied: 15,
     driver: "Fatima Abdullahi",
-    lastUpdate: new Date()
+    lastUpdate: new Date(),
+    waypointIndex: 0,
+    direction: 1
   },
   {
     id: "BUS003",
     route: "Hospital → Business Park",
-    currentLocation: "Medical Center",
+    routeId: "ROUTE003",
+    currentLocation: "Murtala Hospital",
     coordinates: [11.9922, 8.5820],
     status: "Delayed",
     capacity: 45,
     occupied: 32,
     driver: "Ibrahim Musa",
-    lastUpdate: new Date()
+    lastUpdate: new Date(),
+    waypointIndex: 0,
+    direction: 1
   }
 ];
 
@@ -78,22 +125,66 @@ const Map = () => {
     }
   }, [location.state, buses]);
 
-  // Simulate real-time bus position updates
+  // Animate buses along their routes
   useEffect(() => {
     if (!isValidated) return;
 
     const interval = setInterval(() => {
       setBuses(prevBuses => 
-        prevBuses.map(bus => ({
-          ...bus,
-          coordinates: [
-            bus.coordinates[0] + (Math.random() - 0.5) * 0.001,
-            bus.coordinates[1] + (Math.random() - 0.5) * 0.001
-          ],
-          lastUpdate: new Date()
-        }))
+        prevBuses.map(bus => {
+          const route = mockRoutes.find(r => r.id === bus.routeId);
+          if (!route) return bus;
+
+          const currentWaypoint = route.waypoints[bus.waypointIndex];
+          const nextWaypointIndex = bus.direction === 1 
+            ? (bus.waypointIndex + 1) % route.waypoints.length
+            : bus.waypointIndex === 0 
+              ? route.waypoints.length - 1 
+              : bus.waypointIndex - 1;
+          
+          const nextWaypoint = route.waypoints[nextWaypointIndex];
+          
+          // Calculate movement towards next waypoint
+          const latDiff = nextWaypoint.coordinates[0] - currentWaypoint.coordinates[0];
+          const lngDiff = nextWaypoint.coordinates[1] - currentWaypoint.coordinates[1];
+          const moveSpeed = 0.0002; // Adjust speed as needed
+          
+          const newLat = bus.coordinates[0] + (latDiff * moveSpeed);
+          const newLng = bus.coordinates[1] + (lngDiff * moveSpeed);
+          
+          // Check if bus reached the waypoint
+          const distance = Math.sqrt(
+            Math.pow(newLat - nextWaypoint.coordinates[0], 2) + 
+            Math.pow(newLng - nextWaypoint.coordinates[1], 2)
+          );
+          
+          let updatedBus = { ...bus };
+          
+          if (distance < 0.0005) { // Reached waypoint
+            updatedBus = {
+              ...bus,
+              coordinates: nextWaypoint.coordinates,
+              currentLocation: nextWaypoint.name,
+              waypointIndex: nextWaypointIndex,
+              lastUpdate: new Date()
+            };
+            
+            // Change direction at start/end waypoints
+            if (nextWaypointIndex === 0 || nextWaypointIndex === route.waypoints.length - 1) {
+              updatedBus.direction *= -1;
+            }
+          } else {
+            updatedBus = {
+              ...bus,
+              coordinates: [newLat, newLng],
+              lastUpdate: new Date()
+            };
+          }
+          
+          return updatedBus;
+        })
       );
-    }, 5000);
+    }, 2000); // Update every 2 seconds for smooth animation
 
     return () => clearInterval(interval);
   }, [isValidated]);
@@ -290,27 +381,114 @@ const Map = () => {
             <Card className="border-0 shadow-soft">
               <CardContent className="p-0">
                 <div className="relative h-96 lg:h-[600px] bg-muted rounded-lg overflow-hidden">
-                  {/* Map Placeholder - In real app, integrate with Leaflet/Mapbox */}
-                  <div className="absolute inset-0 bg-gradient-to-br from-success/20 to-primary/20 flex items-center justify-center">
-                    <div className="text-center">
-                      <MapPin className="h-12 w-12 text-primary mx-auto mb-4" />
-                      <h3 className="text-lg font-semibold mb-2">Kano Mass Transit Map</h3>
-                      <p className="text-muted-foreground">
-                        {selectedBus 
-                          ? `Tracking ${selectedBus.id} - ${selectedBus.currentLocation}`
-                          : "Select a bus to view on map"
-                        }
-                      </p>
-                      {selectedBus && (
-                        <div className="mt-4 space-y-2">
-                          <p className="text-sm">
-                            <strong>Coordinates:</strong> {selectedBus.coordinates[0].toFixed(4)}, {selectedBus.coordinates[1].toFixed(4)}
-                          </p>
-                          <p className="text-sm">
-                            <strong>Last Update:</strong> {selectedBus.lastUpdate.toLocaleTimeString()}
-                          </p>
+                  {/* Interactive Map with Routes and Animated Buses */}
+                  <div className="absolute inset-0 bg-gradient-to-br from-success/10 to-primary/10">
+                    {/* Background Map Grid */}
+                    <div className="absolute inset-0 opacity-20">
+                      <div className="w-full h-full bg-grid-pattern"></div>
+                    </div>
+                    
+                    {/* Route Lines */}
+                    <svg className="absolute inset-0 w-full h-full">
+                      {mockRoutes.map((route, routeIndex) => (
+                        <g key={route.id}>
+                          {route.waypoints.map((waypoint, index) => {
+                            if (index === route.waypoints.length - 1) return null;
+                            const nextWaypoint = route.waypoints[index + 1];
+                            
+                            // Calculate SVG coordinates (simplified mapping)
+                            const x1 = ((waypoint.coordinates[0] - 11.9) * 1000) % 100 + 50;
+                            const y1 = ((waypoint.coordinates[1] - 8.5) * 800) % 80 + 40;
+                            const x2 = ((nextWaypoint.coordinates[0] - 11.9) * 1000) % 100 + 50;
+                            const y2 = ((nextWaypoint.coordinates[1] - 8.5) * 800) % 80 + 40;
+                            
+                            return (
+                              <line
+                                key={`${route.id}-${index}`}
+                                x1={`${x1}%`}
+                                y1={`${y1}%`}
+                                x2={`${x2}%`}
+                                y2={`${y2}%`}
+                                stroke={route.color}
+                                strokeWidth="3"
+                                strokeDasharray="5,5"
+                                className="animate-pulse"
+                              />
+                            );
+                          })}
+                          
+                          {/* Route Waypoints */}
+                          {route.waypoints.map((waypoint, index) => {
+                            const x = ((waypoint.coordinates[0] - 11.9) * 1000) % 100 + 50;
+                            const y = ((waypoint.coordinates[1] - 8.5) * 800) % 80 + 40;
+                            
+                            return (
+                              <circle
+                                key={`${route.id}-waypoint-${index}`}
+                                cx={`${x}%`}
+                                cy={`${y}%`}
+                                r="4"
+                                fill={route.color}
+                                className="drop-shadow-lg"
+                              />
+                            );
+                          })}
+                        </g>
+                      ))}
+                    </svg>
+                    
+                    {/* Animated Bus Icons */}
+                    {(isAdmin ? buses : userBus ? [userBus] : []).map((bus) => {
+                      const x = ((bus.coordinates[0] - 11.9) * 1000) % 100 + 50;
+                      const y = ((bus.coordinates[1] - 8.5) * 800) % 80 + 40;
+                      const route = mockRoutes.find(r => r.id === bus.routeId);
+                      
+                      return (
+                        <div
+                          key={bus.id}
+                          className="absolute transform -translate-x-1/2 -translate-y-1/2 transition-all duration-2000 ease-linear"
+                          style={{
+                            left: `${x}%`,
+                            top: `${y}%`,
+                          }}
+                        >
+                          <div className={`relative p-2 rounded-full shadow-strong animate-pulse ${
+                            selectedBus?.id === bus.id ? 'ring-2 ring-white' : ''
+                          }`} style={{ backgroundColor: route?.color || '#3B82F6' }}>
+                            <Bus className="h-4 w-4 text-white" />
+                            {bus.status === "Delayed" && (
+                              <div className="absolute -top-1 -right-1 w-3 h-3 bg-warning rounded-full animate-pulse"></div>
+                            )}
+                          </div>
+                          
+                          {selectedBus?.id === bus.id && (
+                            <div className="absolute top-full left-1/2 transform -translate-x-1/2 mt-2 bg-white rounded-lg shadow-strong px-2 py-1 text-xs whitespace-nowrap">
+                              {bus.id} - {bus.currentLocation}
+                            </div>
+                          )}
                         </div>
-                      )}
+                      );
+                    })}
+                    
+                    {/* Map Info */}
+                    <div className="absolute top-4 left-4">
+                      <div className="bg-white/90 backdrop-blur-sm rounded-lg p-3 shadow-strong">
+                        <h3 className="font-semibold text-sm mb-2">Kano Mass Transit</h3>
+                        <div className="space-y-1 text-xs text-muted-foreground">
+                          <div className="flex items-center gap-2">
+                            <div className="w-3 h-3 rounded-full bg-blue-500"></div>
+                            <span>City Center ↔ Airport</span>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <div className="w-3 h-3 rounded-full bg-green-500"></div>
+                            <span>University ↔ Shopping</span>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <div className="w-3 h-3 rounded-full bg-amber-500"></div>
+                            <span>Hospital ↔ Business</span>
+                          </div>
+                        </div>
+                      </div>
                     </div>
                   </div>
 
