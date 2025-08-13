@@ -1,5 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { ArrowLeft, MapPin, Users, Shield, AlertCircle, CheckCircle, Navigation, Bus } from "lucide-react";
+import mapboxgl from 'mapbox-gl';
+import 'mapbox-gl/dist/mapbox-gl.css';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -16,18 +18,18 @@ const mockTickets = [
   { id: "TCK003", busId: "BUS003", userId: "user789", route: "Hospital → Business Park" },
 ];
 
-// Mock route data for Kano city
+// Mock route data for Kano city with real coordinates
 const mockRoutes = [
   {
     id: "ROUTE001",
     name: "City Center → Airport Terminal",
     color: "#3B82F6",
     waypoints: [
-      { name: "Central Market", coordinates: [12.0022, 8.5920] },
-      { name: "Kano State University", coordinates: [12.0122, 8.6020] },
-      { name: "Murtala Mohammed Way", coordinates: [12.0322, 8.6120] },
-      { name: "Airport Junction", coordinates: [12.0522, 8.6220] },
-      { name: "Airport Terminal", coordinates: [12.0622, 8.6320] },
+      { name: "Central Market", coordinates: [8.5167, 12.0022] },
+      { name: "Kano State University", coordinates: [8.5267, 12.0122] },
+      { name: "Murtala Mohammed Way", coordinates: [8.5367, 12.0222] },
+      { name: "Airport Junction", coordinates: [8.5467, 12.0322] },
+      { name: "Airport Terminal", coordinates: [8.5567, 12.0422] },
     ]
   },
   {
@@ -35,10 +37,10 @@ const mockRoutes = [
     name: "University → Shopping District",
     color: "#10B981",
     waypoints: [
-      { name: "Bayero University", coordinates: [12.0122, 8.6020] },
-      { name: "Zoo Road", coordinates: [11.9922, 8.5820] },
-      { name: "Ibrahim Taiwo Road", coordinates: [11.9822, 8.5720] },
-      { name: "City Mall", coordinates: [11.9722, 8.5620] },
+      { name: "Bayero University", coordinates: [8.5267, 12.0122] },
+      { name: "Zoo Road", coordinates: [8.5067, 11.9922] },
+      { name: "Ibrahim Taiwo Road", coordinates: [8.4967, 11.9822] },
+      { name: "City Mall", coordinates: [8.4867, 11.9722] },
     ]
   },
   {
@@ -46,22 +48,22 @@ const mockRoutes = [
     name: "Hospital → Business Park",
     color: "#F59E0B",
     waypoints: [
-      { name: "Murtala Hospital", coordinates: [11.9922, 8.5820] },
-      { name: "Government House", coordinates: [12.0022, 8.5920] },
-      { name: "Business District", coordinates: [12.0222, 8.6020] },
-      { name: "Industrial Area", coordinates: [12.0422, 8.6120] },
+      { name: "Murtala Hospital", coordinates: [8.5067, 11.9922] },
+      { name: "Government House", coordinates: [8.5167, 12.0022] },
+      { name: "Business District", coordinates: [8.5267, 12.0222] },
+      { name: "Industrial Area", coordinates: [8.5367, 12.0422] },
     ]
   }
 ];
 
-// Mock bus data with real-time positions and route assignments
+// Mock bus data with real-time positions and route assignments (coordinates in [lng, lat] format)
 const mockBuses = [
   {
     id: "BUS001",
     route: "City Center → Airport Terminal",
     routeId: "ROUTE001",
     currentLocation: "Central Market",
-    coordinates: [12.0022, 8.5920],
+    coordinates: [8.5167, 12.0022],
     status: "On Time",
     capacity: 40,
     occupied: 28,
@@ -75,7 +77,7 @@ const mockBuses = [
     route: "University → Shopping District",
     routeId: "ROUTE002",
     currentLocation: "Bayero University",
-    coordinates: [12.0122, 8.6020],
+    coordinates: [8.5267, 12.0122],
     status: "On Time",
     capacity: 35,
     occupied: 15,
@@ -89,7 +91,7 @@ const mockBuses = [
     route: "Hospital → Business Park",
     routeId: "ROUTE003",
     currentLocation: "Murtala Hospital",
-    coordinates: [11.9922, 8.5820],
+    coordinates: [8.5067, 11.9922],
     status: "Delayed",
     capacity: 45,
     occupied: 32,
@@ -111,7 +113,11 @@ const Map = () => {
   const [userBus, setUserBus] = useState<any>(null);
   const [buses, setBuses] = useState(mockBuses);
   const [selectedBus, setSelectedBus] = useState<any>(null);
+  const [mapboxToken, setMapboxToken] = useState("");
+  const [showTokenInput, setShowTokenInput] = useState(false);
   const mapRef = useRef<HTMLDivElement>(null);
+  const map = useRef<mapboxgl.Map | null>(null);
+  const busMarkers = useRef<{ [key: string]: mapboxgl.Marker }>({});
 
   // Check if user came from track page with busId
   useEffect(() => {
@@ -145,17 +151,17 @@ const Map = () => {
           const nextWaypoint = route.waypoints[nextWaypointIndex];
           
           // Calculate movement towards next waypoint
-          const latDiff = nextWaypoint.coordinates[0] - currentWaypoint.coordinates[0];
-          const lngDiff = nextWaypoint.coordinates[1] - currentWaypoint.coordinates[1];
+          const lngDiff = nextWaypoint.coordinates[0] - currentWaypoint.coordinates[0];
+          const latDiff = nextWaypoint.coordinates[1] - currentWaypoint.coordinates[1];
           const moveSpeed = 0.0002; // Adjust speed as needed
           
-          const newLat = bus.coordinates[0] + (latDiff * moveSpeed);
-          const newLng = bus.coordinates[1] + (lngDiff * moveSpeed);
+          const newLng = bus.coordinates[0] + (lngDiff * moveSpeed);
+          const newLat = bus.coordinates[1] + (latDiff * moveSpeed);
           
           // Check if bus reached the waypoint
           const distance = Math.sqrt(
-            Math.pow(newLat - nextWaypoint.coordinates[0], 2) + 
-            Math.pow(newLng - nextWaypoint.coordinates[1], 2)
+            Math.pow(newLng - nextWaypoint.coordinates[0], 2) + 
+            Math.pow(newLat - nextWaypoint.coordinates[1], 2)
           );
           
           let updatedBus = { ...bus };
@@ -176,7 +182,7 @@ const Map = () => {
           } else {
             updatedBus = {
               ...bus,
-              coordinates: [newLat, newLng],
+              coordinates: [newLng, newLat],
               lastUpdate: new Date()
             };
           }
@@ -188,6 +194,149 @@ const Map = () => {
 
     return () => clearInterval(interval);
   }, [isValidated]);
+
+  // Initialize Mapbox map
+  useEffect(() => {
+    if (!isValidated || !mapboxToken || !mapRef.current) return;
+
+    mapboxgl.accessToken = mapboxToken;
+    
+    map.current = new mapboxgl.Map({
+      container: mapRef.current,
+      style: 'mapbox://styles/mapbox/streets-v12',
+      center: [8.5167, 12.0022], // Kano city center
+      zoom: 12,
+    });
+
+    // Add navigation controls
+    map.current.addControl(new mapboxgl.NavigationControl(), 'top-right');
+
+    // Add route lines
+    map.current.on('load', () => {
+      mockRoutes.forEach((route) => {
+        const routeCoordinates = route.waypoints.map(wp => wp.coordinates);
+        
+        map.current?.addSource(`route-${route.id}`, {
+          type: 'geojson',
+          data: {
+            type: 'Feature',
+            properties: {},
+            geometry: {
+              type: 'LineString',
+              coordinates: routeCoordinates
+            }
+          }
+        });
+
+        map.current?.addLayer({
+          id: `route-${route.id}`,
+          type: 'line',
+          source: `route-${route.id}`,
+          layout: {
+            'line-join': 'round',
+            'line-cap': 'round'
+          },
+          paint: {
+            'line-color': route.color,
+            'line-width': 4,
+            'line-opacity': 0.8
+          }
+        });
+
+        // Add waypoint markers
+        route.waypoints.forEach((waypoint, index) => {
+          const marker = new mapboxgl.Marker({
+            color: route.color,
+            scale: 0.8
+          })
+            .setLngLat(waypoint.coordinates as [number, number])
+            .setPopup(new mapboxgl.Popup().setText(waypoint.name))
+            .addTo(map.current!);
+        });
+      });
+    });
+
+    return () => {
+      map.current?.remove();
+    };
+  }, [isValidated, mapboxToken]);
+
+  // Update bus markers
+  useEffect(() => {
+    if (!map.current || !isValidated) return;
+
+    const busesToShow = isAdmin ? buses : userBus ? [userBus] : [];
+    
+    busesToShow.forEach((bus) => {
+      const route = mockRoutes.find(r => r.id === bus.routeId);
+      
+      if (busMarkers.current[bus.id]) {
+        // Update existing marker position
+        busMarkers.current[bus.id].setLngLat(bus.coordinates as [number, number]);
+      } else {
+        // Create new marker
+        const el = document.createElement('div');
+        el.className = 'bus-marker';
+        el.style.cssText = `
+          width: 30px;
+          height: 30px;
+          border-radius: 50%;
+          background-color: ${route?.color || '#3B82F6'};
+          border: 3px solid white;
+          box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          cursor: pointer;
+        `;
+        
+        const busIcon = document.createElement('div');
+        busIcon.innerHTML = '🚌';
+        busIcon.style.fontSize = '16px';
+        el.appendChild(busIcon);
+
+        el.addEventListener('click', () => {
+          setSelectedBus(bus);
+        });
+
+        const marker = new mapboxgl.Marker(el)
+          .setLngLat(bus.coordinates as [number, number])
+          .setPopup(
+            new mapboxgl.Popup()
+              .setHTML(`
+                <div class="p-2">
+                  <h3 class="font-bold">${bus.id}</h3>
+                  <p class="text-sm">${bus.currentLocation}</p>
+                  <p class="text-xs text-gray-600">${bus.occupied}/${bus.capacity} passengers</p>
+                </div>
+              `)
+          )
+          .addTo(map.current!);
+
+        busMarkers.current[bus.id] = marker;
+      }
+    });
+
+    // Remove markers for buses not in current view
+    Object.keys(busMarkers.current).forEach(busId => {
+      if (!busesToShow.find(b => b.id === busId)) {
+        busMarkers.current[busId].remove();
+        delete busMarkers.current[busId];
+      }
+    });
+  }, [buses, isAdmin, userBus, isValidated]);
+
+  const initializeMap = () => {
+    if (!mapboxToken.trim()) {
+      toast({
+        title: "Missing Token",
+        description: "Please enter your Mapbox public token",
+        variant: "destructive"
+      });
+      return;
+    }
+    setShowTokenInput(false);
+  };
 
   const validateTicket = () => {
     if (!ticketId.trim()) {
@@ -203,9 +352,10 @@ const Map = () => {
     if (ticketId.toLowerCase() === "admin123") {
       setIsAdmin(true);
       setIsValidated(true);
+      setShowTokenInput(true);
       toast({
         title: "Admin Access Granted",
-        description: "You can now track all buses"
+        description: "Please enter your Mapbox token to continue"
       });
       return;
     }
@@ -218,9 +368,10 @@ const Map = () => {
         setUserBus(bus);
         setIsValidated(true);
         setSelectedBus(bus);
+        setShowTokenInput(true);
         toast({
           title: "Ticket Validated",
-          description: `Tracking your bus: ${bus.id}`
+          description: "Please enter your Mapbox token to view the map"
         });
       }
     } else {
@@ -238,7 +389,7 @@ const Map = () => {
     }
   };
 
-  if (!isValidated) {
+  if (!isValidated || showTokenInput) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-background via-secondary/30 to-accent-light/20">
         {/* Header */}
@@ -260,39 +411,77 @@ const Map = () => {
                 <div className="mx-auto w-16 h-16 bg-primary/10 rounded-full flex items-center justify-center mb-4">
                   <Shield className="h-8 w-8 text-primary" />
                 </div>
-                <CardTitle>Access Verification</CardTitle>
+                <CardTitle>
+                  {showTokenInput ? "Mapbox Configuration" : "Access Verification"}
+                </CardTitle>
                 <p className="text-muted-foreground">
-                  Enter your ticket ID to track your bus or admin credentials to view all buses
+                  {showTokenInput 
+                    ? "Enter your Mapbox public token to load the real map of Kano"
+                    : "Enter your ticket ID to track your bus or admin credentials to view all buses"
+                  }
                 </p>
               </CardHeader>
               <CardContent className="space-y-4">
-                <div>
-                  <Label htmlFor="ticketId">Ticket ID</Label>
-                  <Input
-                    id="ticketId"
-                    value={ticketId}
-                    onChange={(e) => setTicketId(e.target.value)}
-                    placeholder="Enter ticket ID (e.g., TCK001)"
-                    className="mt-1"
-                  />
-                </div>
+                {showTokenInput ? (
+                  <>
+                    <div>
+                      <Label htmlFor="mapboxToken">Mapbox Public Token</Label>
+                      <Input
+                        id="mapboxToken"
+                        type="password"
+                        value={mapboxToken}
+                        onChange={(e) => setMapboxToken(e.target.value)}
+                        placeholder="pk.eyJ1IjoiY..."
+                        className="mt-1"
+                      />
+                    </div>
 
-                <Alert>
-                  <AlertCircle className="h-4 w-4" />
-                  <AlertDescription>
-                    <strong>Demo Credentials:</strong><br />
-                    • User tickets: TCK001, TCK002, TCK003<br />
-                    • Admin access: admin123
-                  </AlertDescription>
-                </Alert>
+                    <Alert>
+                      <AlertCircle className="h-4 w-4" />
+                      <AlertDescription>
+                        Get your Mapbox public token from <a href="https://mapbox.com/" target="_blank" rel="noopener noreferrer" className="text-primary underline">mapbox.com</a> → Account → Tokens
+                      </AlertDescription>
+                    </Alert>
 
-                <Button 
-                  onClick={validateTicket}
-                  className="w-full"
-                  size="lg"
-                >
-                  Verify & Access Map
-                </Button>
+                    <Button 
+                      onClick={initializeMap}
+                      className="w-full"
+                      size="lg"
+                    >
+                      Load Map
+                    </Button>
+                  </>
+                ) : (
+                  <>
+                    <div>
+                      <Label htmlFor="ticketId">Ticket ID</Label>
+                      <Input
+                        id="ticketId"
+                        value={ticketId}
+                        onChange={(e) => setTicketId(e.target.value)}
+                        placeholder="Enter ticket ID (e.g., TCK001)"
+                        className="mt-1"
+                      />
+                    </div>
+
+                    <Alert>
+                      <AlertCircle className="h-4 w-4" />
+                      <AlertDescription>
+                        <strong>Demo Credentials:</strong><br />
+                        • User tickets: TCK001, TCK002, TCK003<br />
+                        • Admin access: admin123
+                      </AlertDescription>
+                    </Alert>
+
+                    <Button 
+                      onClick={validateTicket}
+                      className="w-full"
+                      size="lg"
+                    >
+                      Verify & Access Map
+                    </Button>
+                  </>
+                )}
               </CardContent>
             </Card>
           </div>
@@ -380,117 +569,12 @@ const Map = () => {
           <div className="lg:col-span-2">
             <Card className="border-0 shadow-soft">
               <CardContent className="p-0">
-                <div className="relative h-96 lg:h-[600px] bg-muted rounded-lg overflow-hidden">
-                  {/* Interactive Map with Routes and Animated Buses */}
-                  <div className="absolute inset-0 bg-gradient-to-br from-success/10 to-primary/10">
-                    {/* Background Map Grid */}
-                    <div className="absolute inset-0 opacity-20">
-                      <div className="w-full h-full bg-grid-pattern"></div>
-                    </div>
-                    
-                    {/* Route Lines */}
-                    <svg className="absolute inset-0 w-full h-full">
-                      {mockRoutes.map((route, routeIndex) => (
-                        <g key={route.id}>
-                          {route.waypoints.map((waypoint, index) => {
-                            if (index === route.waypoints.length - 1) return null;
-                            const nextWaypoint = route.waypoints[index + 1];
-                            
-                            // Calculate SVG coordinates (simplified mapping)
-                            const x1 = ((waypoint.coordinates[0] - 11.9) * 1000) % 100 + 50;
-                            const y1 = ((waypoint.coordinates[1] - 8.5) * 800) % 80 + 40;
-                            const x2 = ((nextWaypoint.coordinates[0] - 11.9) * 1000) % 100 + 50;
-                            const y2 = ((nextWaypoint.coordinates[1] - 8.5) * 800) % 80 + 40;
-                            
-                            return (
-                              <line
-                                key={`${route.id}-${index}`}
-                                x1={`${x1}%`}
-                                y1={`${y1}%`}
-                                x2={`${x2}%`}
-                                y2={`${y2}%`}
-                                stroke={route.color}
-                                strokeWidth="3"
-                                strokeDasharray="5,5"
-                                className="animate-pulse"
-                              />
-                            );
-                          })}
-                          
-                          {/* Route Waypoints */}
-                          {route.waypoints.map((waypoint, index) => {
-                            const x = ((waypoint.coordinates[0] - 11.9) * 1000) % 100 + 50;
-                            const y = ((waypoint.coordinates[1] - 8.5) * 800) % 80 + 40;
-                            
-                            return (
-                              <circle
-                                key={`${route.id}-waypoint-${index}`}
-                                cx={`${x}%`}
-                                cy={`${y}%`}
-                                r="4"
-                                fill={route.color}
-                                className="drop-shadow-lg"
-                              />
-                            );
-                          })}
-                        </g>
-                      ))}
-                    </svg>
-                    
-                    {/* Animated Bus Icons */}
-                    {(isAdmin ? buses : userBus ? [userBus] : []).map((bus) => {
-                      const x = ((bus.coordinates[0] - 11.9) * 1000) % 100 + 50;
-                      const y = ((bus.coordinates[1] - 8.5) * 800) % 80 + 40;
-                      const route = mockRoutes.find(r => r.id === bus.routeId);
-                      
-                      return (
-                        <div
-                          key={bus.id}
-                          className="absolute transform -translate-x-1/2 -translate-y-1/2 transition-all duration-2000 ease-linear"
-                          style={{
-                            left: `${x}%`,
-                            top: `${y}%`,
-                          }}
-                        >
-                          <div className={`relative p-2 rounded-full shadow-strong animate-pulse ${
-                            selectedBus?.id === bus.id ? 'ring-2 ring-white' : ''
-                          }`} style={{ backgroundColor: route?.color || '#3B82F6' }}>
-                            <Bus className="h-4 w-4 text-white" />
-                            {bus.status === "Delayed" && (
-                              <div className="absolute -top-1 -right-1 w-3 h-3 bg-warning rounded-full animate-pulse"></div>
-                            )}
-                          </div>
-                          
-                          {selectedBus?.id === bus.id && (
-                            <div className="absolute top-full left-1/2 transform -translate-x-1/2 mt-2 bg-white rounded-lg shadow-strong px-2 py-1 text-xs whitespace-nowrap">
-                              {bus.id} - {bus.currentLocation}
-                            </div>
-                          )}
-                        </div>
-                      );
-                    })}
-                    
-                    {/* Map Info */}
-                    <div className="absolute top-4 left-4">
-                      <div className="bg-white/90 backdrop-blur-sm rounded-lg p-3 shadow-strong">
-                        <h3 className="font-semibold text-sm mb-2">Kano Mass Transit</h3>
-                        <div className="space-y-1 text-xs text-muted-foreground">
-                          <div className="flex items-center gap-2">
-                            <div className="w-3 h-3 rounded-full bg-blue-500"></div>
-                            <span>City Center ↔ Airport</span>
-                          </div>
-                          <div className="flex items-center gap-2">
-                            <div className="w-3 h-3 rounded-full bg-green-500"></div>
-                            <span>University ↔ Shopping</span>
-                          </div>
-                          <div className="flex items-center gap-2">
-                            <div className="w-3 h-3 rounded-full bg-amber-500"></div>
-                            <span>Hospital ↔ Business</span>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
+                <div className="relative">
+                  <div 
+                    ref={mapRef}
+                    className="h-96 lg:h-[600px] bg-muted rounded-lg overflow-hidden"
+                    style={{ width: '100%', height: '600px' }}
+                  />
 
                   {/* Live Update Indicator */}
                   {selectedBus && (
