@@ -17,29 +17,29 @@ const mockBuses = [
     capacity: 40,
     occupied: 28,
     status: "On Time",
-    coordinates: [40.7128, -74.0060]
-  },
-  {
-    id: "BUS002", 
-    route: "University → Shopping District",
-    currentLocation: "University Campus",
-    nextStop: "Library Square",
-    eta: "7 min",
-    capacity: 35,
-    occupied: 15,
-    status: "On Time",
-    coordinates: [40.7589, -73.9851]
-  },
-  {
-    id: "BUS003",
-    route: "Hospital → Business Park",
-    currentLocation: "Medical Center",
-    nextStop: "Metro Junction",
-    eta: "12 min",
-    capacity: 45,
-    occupied: 32,
-    status: "Delayed",
-    coordinates: [40.7505, -73.9934]
+     coordinates: [12.0022, 8.5920] // Kano, Nigeria
+   },
+   {
+     id: "BUS002", 
+     route: "University → Shopping District",
+     currentLocation: "University Campus",
+     nextStop: "Library Square",
+     eta: "7 min",
+     capacity: 35,
+     occupied: 15,
+     status: "On Time",
+     coordinates: [12.0122, 8.6020] // Kano area
+   },
+   {
+     id: "BUS003",
+     route: "Hospital → Business Park",
+     currentLocation: "Medical Center",
+     nextStop: "Metro Junction",
+     eta: "12 min",
+     capacity: 45,
+     occupied: 32,
+     status: "Delayed",
+     coordinates: [11.9922, 8.5820] // Kano area
   }
 ];
 

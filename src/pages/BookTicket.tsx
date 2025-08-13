@@ -185,7 +185,7 @@ const BookTicket = () => {
                         <span className="font-medium">Total Fare</span>
                       </div>
                       <div className="text-xl font-bold text-accent">
-                        ${calculateFare()}
+                        ₦{calculateFare()}
                       </div>
                     </div>
                     <div className="text-sm text-muted-foreground mt-1">

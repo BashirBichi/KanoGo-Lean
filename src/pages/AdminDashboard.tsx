@@ -27,7 +27,7 @@ const AdminDashboard = () => {
     },
     {
       title: "Revenue Today",
-      value: "$31,175",
+      value: "₦31,175",
       change: "+8%",
       icon: TrendingUp,
       color: "text-accent"

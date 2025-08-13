@@ -96,7 +96,7 @@ const Payment = () => {
                 <div className="border-t pt-4">
                   <div className="flex justify-between text-lg font-bold">
                     <span>Total Amount</span>
-                    <span className="text-primary">${fare}</span>
+                    <span className="text-primary">₦{fare}</span>
                   </div>
                 </div>
               </div>
@@ -214,7 +214,7 @@ const Payment = () => {
                   ) : (
                     <>
                       <CheckCircle className="h-5 w-5 mr-2" />
-                      Pay ${fare} & Get Pass
+                      Pay ₦{fare} & Get Pass
                     </>
                   )}
                 </Button>

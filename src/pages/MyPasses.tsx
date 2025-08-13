@@ -103,7 +103,7 @@ const MyPasses = () => {
               <span>{pass.busNumber}</span>
             </div>
             <div className="text-right">
-              <span className="font-semibold">${pass.fare}</span>
+              <span className="font-semibold">₦{pass.fare}</span>
               <span className="text-muted-foreground ml-1">
                 ({pass.passengers} pax)
               </span>
