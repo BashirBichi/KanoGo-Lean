@@ -6,6 +6,7 @@ import { BrowserRouter, Routes, Route } from "react-router-dom";
 import Home from "./pages/Home";
 import BookTicket from "./pages/BookTicket";
 import TrackBus from "./pages/TrackBus";
+import Map from "./pages/Map";
 import MyPasses from "./pages/MyPasses";
 import Payment from "./pages/Payment";
 import AdminDashboard from "./pages/AdminDashboard";
@@ -23,6 +24,7 @@ const App = () => (
           <Route path="/" element={<Home />} />
           <Route path="/book" element={<BookTicket />} />
           <Route path="/track" element={<TrackBus />} />
+          <Route path="/map" element={<Map />} />
           <Route path="/passes" element={<MyPasses />} />
           <Route path="/payment" element={<Payment />} />
           <Route path="/admin" element={<AdminDashboard />} />
